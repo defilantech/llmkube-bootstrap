@@ -44,21 +44,23 @@
       tags: [always]
 
   roles:
-    # Base path -- everyone gets these in order.
+    # Base path -- everyone gets these in order. Each role also
+    # gets a tag of its own name so CI can run a subset cleanly
+    # (e.g. --tags system,homebrew for the macOS install test).
     - role: system
-      tags: [base]
+      tags: [base, system]
     - role: homebrew
-      tags: [base]
+      tags: [base, homebrew]
     - role: kubernetes
-      tags: [base]
+      tags: [base, kubernetes]
     - role: llmkube_core
-      tags: [base]
+      tags: [base, llmkube_core]
     - role: model_starter
-      tags: [base]
+      tags: [base, model_starter]
     - role: developer_tools
-      tags: [base]
+      tags: [base, developer_tools]
     - role: opencode
-      tags: [base]
+      tags: [base, opencode]
 
     # Opt-in -- only when --tags includes the matching tag.
     - role: carnice
