@@ -24,5 +24,6 @@ skip_list:
 
 warn_list:
   - experimental
-  - yaml[line-length]    # yamllint handles this already; ansible-lint
-                         # double-emitting is noise
+  # yamllint already enforces line-length; treat ansible-lint's copy
+  # as a warning so we do not double-fail on the same rule.
+  - yaml[line-length]
