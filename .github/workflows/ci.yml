@@ -56,3 +56,47 @@ jobs:
         with:
           scandir: "."
           ignore_paths: "collections .github"
+
+  # --- macOS jobs --------------------------------------------------------
+  #
+  # Standard GitHub-hosted macos-26 runners are Apple Silicon (M1, 3 CPU,
+  # 7 GB RAM, 14 GB disk) and free for public repos. These two jobs catch
+  # platform-specific bugs that the Ubuntu lint jobs cannot see.
+
+  macos-check:
+    name: macos-check (syntax + asserts)
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ansible via Homebrew
+        run: brew install ansible
+      - name: Install Ansible Galaxy collections
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: ansible-playbook --syntax-check
+        run: ansible-playbook -i inventory/localhost.yml playbook.yml --syntax-check
+      - name: Run preflight asserts only
+        # --tags always pulls just the pre_tasks block (macOS / arm64 /
+        # Sequoia-or-later asserts). Proves the playbook can boot on a
+        # real Apple Silicon mac without doing any installs.
+        run: ansible-playbook -i inventory/localhost.yml playbook.yml --tags always
+
+  macos-homebrew:
+    name: macos-homebrew (install package set)
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ansible via Homebrew
+        run: brew install ansible
+      - name: Install Ansible Galaxy collections
+        run: ansible-galaxy collection install -r requirements.yml
+      - name: Run system + homebrew roles
+        # We stop here on purpose: the kubernetes role wants to launch
+        # Docker Desktop, which is not viable inside a CI runner. The
+        # homebrew install path is the high-leverage check for catching
+        # typo'd brew formulas / casks before a user hits them.
+        run: |
+          ansible-playbook -i inventory/localhost.yml playbook.yml \
+            --tags 'always,system,homebrew' \
+            --diff
