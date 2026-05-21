@@ -78,6 +78,7 @@
 - name: Show smoke-test results
   ansible.builtin.debug:
     msg:
-      - "Endpoint: localhost:{{ starter_endpoint_port.stdout }}"
-      - "Model:    {{ smoke_test.json.model | default('?') }}"
-      - "Tokens:   completion={{ smoke_test.json.usage.completion_tokens | default('?') }} prompt={{ smoke_test.json.usage.prompt_tokens | default('?') }}"
+      - "Endpoint:   localhost:{{ starter_endpoint_port.stdout }}"
+      - "Model:      {{ smoke_test.json.model | default('?') }}"
+      - "Completion: {{ smoke_test.json.usage.completion_tokens | default('?') }} tokens"
+      - "Prompt:     {{ smoke_test.json.usage.prompt_tokens | default('?') }} tokens"

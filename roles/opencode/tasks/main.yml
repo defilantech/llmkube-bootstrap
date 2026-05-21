@@ -46,3 +46,5 @@
       - "  export HF_TOKEN=...       # for HuggingFace MCP, gated models"
       - "See README.md for the full secrets table."
   when: opencode_config is changed
+  # noqa: no-handler -- this is a one-shot informational message, not a
+  # service reload that benefits from notify+handler semantics.

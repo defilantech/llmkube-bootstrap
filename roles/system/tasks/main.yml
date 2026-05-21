@@ -16,6 +16,8 @@
   ansible.builtin.command: git --version
   register: git_version
   changed_when: false
+  # noqa: command-instead-of-module -- we only want to confirm git is
+  # callable; ansible.builtin.git would require a repo argument.
 
 - name: Show detected Mac info
   ansible.builtin.debug:

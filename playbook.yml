@@ -45,14 +45,23 @@
 
   roles:
     # Base path -- everyone gets these in order.
-    - { role: system,           tags: [base] }
-    - { role: homebrew,         tags: [base] }
-    - { role: kubernetes,       tags: [base] }
-    - { role: llmkube_core,     tags: [base] }
-    - { role: model_starter,    tags: [base] }
-    - { role: developer_tools,  tags: [base] }
-    - { role: opencode,         tags: [base] }
+    - role: system
+      tags: [base]
+    - role: homebrew
+      tags: [base]
+    - role: kubernetes
+      tags: [base]
+    - role: llmkube_core
+      tags: [base]
+    - role: model_starter
+      tags: [base]
+    - role: developer_tools
+      tags: [base]
+    - role: opencode
+      tags: [base]
 
     # Opt-in -- only when --tags includes the matching tag.
-    - { role: carnice,          tags: [carnice, never] }
-    - { role: foreman,          tags: [foreman, never] }
+    - role: carnice
+      tags: [carnice, never]
+    - role: foreman
+      tags: [foreman, never]

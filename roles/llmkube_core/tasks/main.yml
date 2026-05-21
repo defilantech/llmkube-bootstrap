@@ -9,7 +9,7 @@
 
 # --- Phase 1: source + operator chart ------------------------------------
 
-- name: Clone LLMKube source to {{ src_dir }}/LLMKube
+- name: Clone the LLMKube source repo into {{ src_dir }}
   ansible.builtin.git:
     repo: "{{ llmkube_repo_url }}"
     dest: "{{ src_dir }}/LLMKube"
