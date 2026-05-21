@@ -1,0 +1,34 @@
+---
+# system role -- macOS sanity asserts + Xcode Command Line Tools.
+#
+# The OS-version + architecture asserts run in the playbook's
+# pre_tasks (before any role); this role handles the heavier-weight
+# checks and the one install that bootstrap.sh cannot pave because
+# Ansible itself depends on Python from the CLT-shipped toolchain.
+
+- name: Verify Xcode Command Line Tools are present
+  ansible.builtin.command: xcode-select -p
+  register: xcode_select_path
+  changed_when: false
+  failed_when: xcode_select_path.rc != 0
+
+- name: Ensure git is on PATH (sanity check on CLT install)
+  ansible.builtin.command: git --version
+  register: git_version
+  changed_when: false
+
+- name: Show detected Mac info
+  ansible.builtin.debug:
+    msg:
+      - "macOS: {{ ansible_facts['distribution_version'] }} ({{ ansible_facts['distribution'] }})"
+      - "Arch: {{ ansible_facts['architecture'] }}"
+      - "Hostname: {{ ansible_facts['hostname'] }}"
+      - "Total RAM: {{ (ansible_facts['memtotal_mb'] / 1024) | round(1) }} GB"
+      - "Xcode CLT path: {{ xcode_select_path.stdout }}"
+      - "git: {{ git_version.stdout }}"
+
+- name: Create the source-clone parent dir if missing
+  ansible.builtin.file:
+    path: "{{ src_dir }}"
+    state: directory
+    mode: "0755"

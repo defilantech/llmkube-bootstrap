@@ -1,0 +1,62 @@
+---
+# group_vars/all.yml - global tunables for llmkube-bootstrap.
+#
+# Override these on the command line with --extra-vars '{"name":"value"}'
+# or edit this file before re-running bootstrap.sh.
+
+# --- Layout ---------------------------------------------------------------
+
+# Where we clone source repos (LLMKube core + anything else).
+src_dir: "{{ ansible_user_dir }}/src"
+
+# Local model store -- metal-agent's --model-store flag.
+model_store: "{{ ansible_user_dir }}/llmkube-models"
+
+# --- LLMKube core ---------------------------------------------------------
+
+llmkube_repo_url: "https://github.com/defilantech/LLMKube.git"
+llmkube_repo_ref: "main"
+llmkube_namespace: "llmkube-system"
+
+# Helm chart source. v0.1 installs from the local clone for fidelity
+# with the operator + metal-agent build we just compiled. Once the
+# released chart matures, switch this to the published repo URL.
+llmkube_chart_path: "{{ src_dir }}/LLMKube/charts/llmkube"
+
+# --- Kubernetes runtime ---------------------------------------------------
+
+kind_cluster_name: "llmkube-local"
+kind_node_image: "kindest/node:v1.34.0"
+
+# --- metal-agent ----------------------------------------------------------
+
+# What fraction of total RAM the agent will treat as available for
+# inference work. 0.9 on a 128 GB machine = ~115 GB budget. Match the
+# value you'd use on a dedicated inference Mac; drop to 0.5 if this
+# machine is also your daily driver running heavy apps.
+metal_agent_memory_fraction: 0.9
+
+# Pin llama-server to a stable port instead of letting metal-agent
+# allocate ephemeral ones. Easier to script against; matches the
+# canonical demo flows.
+metal_agent_llama_server_port: 8080
+
+# --- Starter model --------------------------------------------------------
+
+# phi-4-mini-instruct Q4_K_M from bartowski (the renamed-with-microsoft-
+# prefix repo, post the May 2026 rename).
+starter_model_name: "phi-4-mini"
+starter_model_source: >-
+  https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+
+# --- Carnice (opt-in via --tags carnice) ----------------------------------
+
+carnice_model_name: "qwen36-35b-carnice-mtp"
+carnice_model_source: >-
+  https://huggingface.co/Carnice/Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Balanced-GGUF/resolve/main/Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP-I-Balanced.gguf
+carnice_context_size: 131072
+
+# --- Foreman (opt-in via --tags foreman) ----------------------------------
+
+foreman_namespace: "foreman-system"
+foreman_workspace_root: "{{ ansible_user_dir }}/foreman-workspaces"

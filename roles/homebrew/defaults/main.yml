@@ -1,0 +1,30 @@
+---
+# Default package set. Each list is intentionally small + opinionated.
+# Override in group_vars/all.yml or via --extra-vars to extend.
+
+homebrew_cli_packages:
+  # Kubernetes runtime + tooling
+  - kubectl
+  - kind
+  - helm
+  - k9s
+  - kustomize
+
+  # llama.cpp for Metal-accelerated inference (metal-agent shells to it)
+  - llama.cpp
+
+  # Developer ergonomics
+  - git
+  - gh
+  - jq
+  - yq
+  - fzf
+  - ripgrep
+  - tmux
+
+  # Build + automation prereqs LLMKube core's Makefile needs
+  - go
+  - make
+
+homebrew_casks:
+  - docker          # Docker Desktop -- container runtime kind depends on

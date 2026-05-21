@@ -1,0 +1,87 @@
+---
+# llmkube_core role -- get the operator + metal-agent installed.
+#
+# Two phases:
+#   1. Clone the LLMKube source repo to ~/src/LLMKube and helm-install
+#      its operator chart into the local kind cluster.
+#   2. Build the metal-agent binary from the same source clone and
+#      install the launchd unit via the repo's `make install-metal-agent`.
+
+# --- Phase 1: source + operator chart ------------------------------------
+
+- name: Clone LLMKube source to {{ src_dir }}/LLMKube
+  ansible.builtin.git:
+    repo: "{{ llmkube_repo_url }}"
+    dest: "{{ src_dir }}/LLMKube"
+    version: "{{ llmkube_repo_ref }}"
+    update: true
+    force: false  # never blow away local edits
+  register: llmkube_clone
+
+- name: Show LLMKube source HEAD
+  ansible.builtin.command:
+    cmd: git rev-parse --short HEAD
+    chdir: "{{ src_dir }}/LLMKube"
+  register: llmkube_head
+  changed_when: false
+
+- name: Create the LLMKube namespace
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ llmkube_namespace }}"
+    state: present
+
+- name: Install / upgrade the LLMKube operator chart
+  kubernetes.core.helm:
+    name: llmkube
+    chart_ref: "{{ llmkube_chart_path }}"
+    release_namespace: "{{ llmkube_namespace }}"
+    wait: true
+    atomic: true
+    create_namespace: false
+
+- name: Wait for the LLMKube controller-manager Deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ llmkube_namespace }}"
+    name: llmkube-controller-manager
+  register: llmkube_controller_mgr
+  retries: 30
+  delay: 5
+  until: >-
+    llmkube_controller_mgr.resources | length > 0
+    and (llmkube_controller_mgr.resources[0].status.readyReplicas | default(0)) >= 1
+
+# --- Phase 2: metal-agent ------------------------------------------------
+
+- name: Build + install metal-agent via LLMKube's Makefile
+  ansible.builtin.command:
+    cmd: make install-metal-agent
+    chdir: "{{ src_dir }}/LLMKube"
+  environment:
+    LLMKUBE_METAL_AGENT_MODEL_STORE: "{{ model_store }}"
+    LLMKUBE_METAL_AGENT_MEMORY_FRACTION: "{{ metal_agent_memory_fraction }}"
+    LLMKUBE_METAL_AGENT_LLAMA_SERVER_PORT: "{{ metal_agent_llama_server_port }}"
+  register: install_metal_agent
+  # `make install-metal-agent` is idempotent in spirit but always
+  # rebuilds + reloads launchctl. We report "changed" honestly when
+  # the launchd unit goes through a stop+start cycle.
+  changed_when: "'started' in install_metal_agent.stdout.lower() or 'installed' in install_metal_agent.stdout.lower()"
+
+- name: Ensure the model-store dir exists
+  ansible.builtin.file:
+    path: "{{ model_store }}"
+    state: directory
+    mode: "0755"
+
+- name: Confirm metal-agent is reachable on its health port
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:9090/healthz"
+    status_code: 200
+    return_content: false
+  register: metal_agent_health
+  retries: 20
+  delay: 3
+  until: metal_agent_health.status == 200

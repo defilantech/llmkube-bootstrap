@@ -1,0 +1,39 @@
+---
+# developer_tools role -- the dev ergonomics layer.
+#
+# Everything heavy already comes in via the homebrew role's default
+# package list (gh, jq, yq, k9s, etc.). This role is the place to
+# add user-shaped touches that are not packages: shell aliases, kube
+# config tweaks, repo-scoped tooling shortcuts.
+#
+# Kept intentionally minimal for v0.1; expect this role to grow as
+# the userbase surfaces useful additions.
+
+- name: Ensure ~/.config exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.config"
+    state: directory
+    mode: "0755"
+
+- name: Place a tiny kubectl alias for the local cluster
+  ansible.builtin.copy:
+    dest: "{{ ansible_user_dir }}/.config/llmkube-bootstrap-env.sh"
+    mode: "0644"
+    content: |
+      # Sourced by your shell rc (zsh/bash). Created by llmkube-bootstrap.
+      #
+      # Provides a `kll` shortcut that always targets the local kind
+      # cluster regardless of whatever context kubectl is on.
+      alias kll='kubectl --context kind-{{ kind_cluster_name }}'
+
+      # Useful in dot-completion shells; harmless otherwise.
+      export LLMKUBE_LOCAL_CONTEXT="kind-{{ kind_cluster_name }}"
+      export LLMKUBE_MODEL_STORE="{{ model_store }}"
+
+- name: Tell the user about the env file (one-time print)
+  ansible.builtin.debug:
+    msg: >-
+      Wrote ~/.config/llmkube-bootstrap-env.sh.
+      Add `source ~/.config/llmkube-bootstrap-env.sh` to your ~/.zshrc
+      (or equivalent) to get the `kll` alias + LLMKUBE_* env vars in
+      every new shell.

@@ -1,0 +1,29 @@
+---
+# homebrew role -- per-package installs via community.general.homebrew.
+#
+# Homebrew refuses to run as root on macOS, so every task here runs
+# as the invoking user (become: false). bootstrap.sh already
+# guarantees brew itself is installed; we only manage the package set
+# here.
+
+- name: Ensure Homebrew is up to date
+  community.general.homebrew:
+    update_homebrew: true
+  become: false
+  changed_when: false   # `brew update` always reports as changed; skip
+
+- name: Install CLI packages
+  community.general.homebrew:
+    name: "{{ homebrew_cli_packages }}"
+    state: present
+  become: false
+
+- name: Install Homebrew casks (GUI apps)
+  community.general.homebrew_cask:
+    name: "{{ homebrew_casks }}"
+    state: present
+    # accept_external_apps avoids spurious "already installed via a
+    # different mechanism" failures when a user pre-installed Docker
+    # Desktop manually.
+    accept_external_apps: true
+  become: false

@@ -1,0 +1,11 @@
+---
+# Ansible Galaxy collections llmkube-bootstrap depends on.
+# bootstrap.sh installs these via `ansible-galaxy collection install -r`.
+
+collections:
+  - name: community.general          # community.general.homebrew, .homebrew_cask, etc.
+    version: ">=8.0.0"
+  - name: kubernetes.core             # kubernetes.core.k8s, .helm, etc.
+    version: ">=3.0.0"
+  - name: ansible.posix               # filesystem, mount, sysctl helpers
+    version: ">=1.5.0"

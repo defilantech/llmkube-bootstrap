@@ -1,0 +1,64 @@
+---
+# foreman role -- opt-in via --tags foreman.
+#
+# Installs the Foreman agentic-workload add-on on top of the LLMKube
+# core install. The llmkube_core role has already cloned the source
+# repo to {{ src_dir }}/LLMKube; we build foreman-{operator,agent}
+# from there and install the CRDs + an opt-in launchd unit for the
+# node-side agent.
+#
+# v0.1 assumes Foreman runs on this same Mac (single-node coder
+# pipeline). M4 (gate role on ShadowStack) is out of scope here.
+
+- name: Build the foreman-operator binary
+  ansible.builtin.command:
+    cmd: go build -o bin/foreman-operator ./cmd/foreman-operator
+    chdir: "{{ src_dir }}/LLMKube"
+    creates: "{{ src_dir }}/LLMKube/bin/foreman-operator"
+
+- name: Build the foreman-agent binary
+  ansible.builtin.command:
+    cmd: go build -o bin/foreman-agent ./cmd/foreman-agent
+    chdir: "{{ src_dir }}/LLMKube"
+    creates: "{{ src_dir }}/LLMKube/bin/foreman-agent"
+
+- name: Install Foreman CRDs into the kind cluster
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ item }}"
+  loop:
+    - "{{ src_dir }}/LLMKube/config/crd/bases/foreman.llmkube.dev_agentictasks.yaml"
+    - "{{ src_dir }}/LLMKube/config/crd/bases/foreman.llmkube.dev_agents.yaml"
+    - "{{ src_dir }}/LLMKube/config/crd/bases/foreman.llmkube.dev_fleetnodes.yaml"
+    - "{{ src_dir }}/LLMKube/config/crd/bases/foreman.llmkube.dev_workloads.yaml"
+
+- name: Ensure Foreman workspace root exists
+  ansible.builtin.file:
+    path: "{{ foreman_workspace_root }}"
+    state: directory
+    mode: "0755"
+
+- name: Ensure ~/.config/foreman exists for the GitHub token
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.config/foreman"
+    state: directory
+    mode: "0700"
+
+- name: Tell the user the next steps for Foreman
+  ansible.builtin.debug:
+    msg:
+      - "Foreman built and CRDs installed. Two manual follow-ups before tasks can run:"
+      - ""
+      - "1. Drop your GitHub PAT (or use $GITHUB_TOKEN env):"
+      - "     mkdir -p ~/.config/foreman"
+      - "     gh auth token > ~/.config/foreman/github-token"
+      - "     chmod 600 ~/.config/foreman/github-token"
+      - ""
+      - "2. Run the operator + agent (until v0.2 wires them as launchd units):"
+      - "     {{ src_dir }}/LLMKube/bin/foreman-operator --leader-elect=false &"
+      - "     {{ src_dir }}/LLMKube/bin/foreman-agent --agent-mode=native --workspace-dir={{ foreman_workspace_root }} \\"
+      - "       --git-remote-url=https://github.com/<your-fork>/<repo>.git \\"
+      - "       --inference-base-url-override=http://localhost:{{ metal_agent_llama_server_port }}/v1 \\"
+      - "       --commit-author-email=foreman@$(hostname -s) &"
+      - ""
+      - "See {{ src_dir }}/LLMKube/docs/foreman/runbook-m3.md for the full flow."

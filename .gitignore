@@ -1,0 +1,25 @@
+# Local Ansible artifacts.
+*.retry
+*.pyc
+__pycache__/
+
+# Galaxy collections installed to the repo root (ansible.cfg).
+collections/
+
+# Editor / OS noise.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local-only secret material — should never land here, but a belt:
+*.token
+*.pem
+github-token
+.env
+.env.*
+
+# A user might drop a working dir here while iterating.
+scratch/
+tmp/

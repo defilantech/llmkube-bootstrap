@@ -1,0 +1,80 @@
+---
+# carnice role -- opt-in via --tags carnice.
+#
+# Deploys the Carnice-Qwen3.6-MoE-35B-A3B-APEX-MTP coder model: a
+# larger MoE model good for local agentic work. ~36 GB download,
+# runs at 256K context via YaRN rope-scaling. Expect 10-40 minutes
+# on first install depending on connection.
+#
+# Idempotent: re-running while the model is already cached + the
+# InferenceService is Ready is a no-op.
+
+- name: Apply the Carnice Model resource
+  kubernetes.core.k8s:
+    state: present
+    namespace: default
+    definition:
+      apiVersion: inference.llmkube.dev/v1alpha1
+      kind: Model
+      metadata:
+        name: "{{ carnice_model_name }}"
+        labels:
+          app.kubernetes.io/part-of: llmkube-bootstrap
+          llmkube.dev/role: coder
+      spec:
+        source: "{{ carnice_model_source }}"
+        format: gguf
+        hardware:
+          accelerator: metal
+
+- name: Apply the Carnice InferenceService with 256K context + YaRN
+  kubernetes.core.k8s:
+    state: present
+    namespace: default
+    definition:
+      apiVersion: inference.llmkube.dev/v1alpha1
+      kind: InferenceService
+      metadata:
+        name: "{{ carnice_model_name }}"
+        labels:
+          app.kubernetes.io/part-of: llmkube-bootstrap
+          llmkube.dev/role: coder
+      spec:
+        modelRef: "{{ carnice_model_name }}"
+        contextSize: "{{ carnice_context_size }}"
+        cacheTypeK: q8_0
+        cacheTypeV: q8_0
+        flashAttention: true
+        jinja: true
+        # YaRN rope-scaling is not first-class on the CRD yet (see
+        # LLMKube #507); ride extraArgs until that lands.
+        extraArgs:
+          - "--rope-scaling"
+          - "yarn"
+          - "--rope-scale"
+          - "2"
+          - "--yarn-orig-ctx"
+          - "131072"
+
+- name: Wait for the Carnice InferenceService to reach Ready
+  kubernetes.core.k8s_info:
+    api_version: inference.llmkube.dev/v1alpha1
+    kind: InferenceService
+    namespace: default
+    name: "{{ carnice_model_name }}"
+  register: carnice_isvc
+  # 36 GB download + first-load can be slow. Allow up to 60 minutes.
+  retries: 360
+  delay: 10
+  until: >-
+    carnice_isvc.resources | length > 0
+    and (carnice_isvc.resources[0].status.phase | default('')) == 'Ready'
+
+- name: Done; tell the user how to point opencode at Carnice
+  ansible.builtin.debug:
+    msg:
+      - "Carnice deployed as InferenceService/{{ carnice_model_name }}."
+      - "To make opencode use it, edit ~/.config/opencode/opencode.json:"
+      - "  add a provider block for it (baseURL = same llama-server port)"
+      - "  set `model` at the top to llmkube-local/{{ carnice_model_name }}"
+      - "See README.md > 'After bootstrap' for the full opencode/Carnice recipe."

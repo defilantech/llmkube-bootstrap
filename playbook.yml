@@ -1,0 +1,58 @@
+---
+# llmkube-bootstrap top-level playbook.
+#
+# Runs against localhost only. Tags are how the entrypoint (bootstrap.sh)
+# composes "what to install":
+#
+#   tags: always   -- always run (preflight, sanity asserts)
+#   tags: base     -- the standard install everyone gets
+#   tags: foreman  -- opt-in: agentic-workload add-on
+#   tags: carnice  -- opt-in: pull the 35 GB Carnice GGUF
+#
+# Re-runnable. Each role's tasks short-circuit when their desired
+# state already holds.
+
+- name: Bootstrap a MacBook Pro for LLMKube local inference
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Assert macOS host
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Darwin'
+        fail_msg: "llmkube-bootstrap targets macOS only; ran on {{ ansible_facts['os_family'] }}."
+      tags: [always]
+
+    - name: Assert macOS Sequoia (15.x) or later
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution_major_version'] | int >= 15
+        fail_msg: >-
+          llmkube-bootstrap requires macOS 15 (Sequoia) or later;
+          this Mac is on {{ ansible_facts['distribution_version'] }}.
+      tags: [always]
+
+    - name: Assert Apple Silicon
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['architecture'] == 'arm64'
+        fail_msg: >-
+          llmkube-bootstrap targets Apple Silicon; this Mac reports
+          architecture={{ ansible_facts['architecture'] }}.
+      tags: [always]
+
+  roles:
+    # Base path -- everyone gets these in order.
+    - { role: system,           tags: [base] }
+    - { role: homebrew,         tags: [base] }
+    - { role: kubernetes,       tags: [base] }
+    - { role: llmkube_core,     tags: [base] }
+    - { role: model_starter,    tags: [base] }
+    - { role: developer_tools,  tags: [base] }
+    - { role: opencode,         tags: [base] }
+
+    # Opt-in -- only when --tags includes the matching tag.
+    - { role: carnice,          tags: [carnice, never] }
+    - { role: foreman,          tags: [foreman, never] }

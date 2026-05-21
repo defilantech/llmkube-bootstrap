@@ -1,0 +1,28 @@
+---
+# ansible-lint config. We opt into production profile (the strictest)
+# and selectively disable a handful of rules whose costs outweigh the
+# benefit for a single-host bootstrap repo.
+
+profile: production
+
+exclude_paths:
+  - collections/
+  - .github/
+  - files/                # static templates, not Ansible
+
+skip_list:
+  # role-name-format: roles are owned by this repo only; we use
+  # snake_case for readability (model_starter, developer_tools).
+  # The rule wants kebab-case to match Galaxy conventions which we
+  # are not part of.
+  - role-name
+
+  # var-naming[no-role-prefix]: same reason -- vars under roles/*/defaults
+  # don't need to be prefixed with the role name to avoid collisions
+  # when no other roles share their variables.
+  - var-naming[no-role-prefix]
+
+warn_list:
+  - experimental
+  - yaml[line-length]    # yamllint handles this already; ansible-lint
+                         # double-emitting is noise

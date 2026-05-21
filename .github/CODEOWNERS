@@ -1,0 +1,4 @@
+# Default owner for everything in the repo. Any PR opened against
+# main automatically requests review from the maintainers below.
+
+*       @Defilan

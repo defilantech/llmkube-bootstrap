@@ -1,0 +1,48 @@
+---
+# opencode role -- agentic coding client + sanitized config.
+#
+# Installs the opencode binary via its official installer (homebrew
+# doesn't host it yet at v0.1 timing), then drops in a config that
+# points at the local LLMKube llama-server and pre-registers a small
+# set of common MCP servers. Secrets stay env-driven; the config
+# uses opencode's `{env:VAR}` interpolation.
+
+- name: Check if opencode is already installed
+  ansible.builtin.command: which opencode
+  register: opencode_which
+  failed_when: false
+  changed_when: false
+
+- name: Install opencode via its official installer
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      curl -fsSL https://opencode.ai/install | bash
+    executable: /bin/bash
+  when: opencode_which.rc != 0
+  changed_when: true
+
+- name: Ensure ~/.config/opencode exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.config/opencode"
+    state: directory
+    mode: "0755"
+
+- name: Drop sanitized opencode.json (does not overwrite if user-edited)
+  ansible.builtin.copy:
+    src: opencode.json.template
+    dest: "{{ ansible_user_dir }}/.config/opencode/opencode.json"
+    mode: "0644"
+    force: false   # respect any local edits already on the box
+  register: opencode_config
+
+- name: Remind the user about secrets if config was freshly placed
+  ansible.builtin.debug:
+    msg:
+      - "Wrote ~/.config/opencode/opencode.json (template)."
+      - "Set these in your shell rc before launching opencode:"
+      - "  export BRAVE_API_KEY=..."
+      - "  export GITHUB_TOKEN=...   # also reused by Foreman"
+      - "  export HF_TOKEN=...       # for HuggingFace MCP, gated models"
+      - "See README.md for the full secrets table."
+  when: opencode_config is changed

@@ -1,0 +1,83 @@
+---
+# model_starter role -- deploy phi-4-mini and prove it answers.
+#
+# This is the "your local inference works" moment of the bootstrap.
+# Once this role finishes green, you have a real chat-completions
+# endpoint on localhost that any client can hit. The Carnice role
+# layers a larger model on top later via --tags carnice.
+
+- name: Apply the starter Model resource (phi-4-mini)
+  kubernetes.core.k8s:
+    state: present
+    namespace: default
+    definition:
+      apiVersion: inference.llmkube.dev/v1alpha1
+      kind: Model
+      metadata:
+        name: "{{ starter_model_name }}"
+        labels:
+          app.kubernetes.io/part-of: llmkube-bootstrap
+      spec:
+        source: "{{ starter_model_source }}"
+        format: gguf
+        hardware:
+          accelerator: metal
+
+- name: Apply the starter InferenceService resource
+  kubernetes.core.k8s:
+    state: present
+    namespace: default
+    definition:
+      apiVersion: inference.llmkube.dev/v1alpha1
+      kind: InferenceService
+      metadata:
+        name: "{{ starter_model_name }}"
+        labels:
+          app.kubernetes.io/part-of: llmkube-bootstrap
+      spec:
+        modelRef: "{{ starter_model_name }}"
+
+- name: Wait for the starter InferenceService to reach Ready
+  kubernetes.core.k8s_info:
+    api_version: inference.llmkube.dev/v1alpha1
+    kind: InferenceService
+    namespace: default
+    name: "{{ starter_model_name }}"
+  register: starter_isvc
+  retries: 60
+  delay: 10
+  until: >-
+    starter_isvc.resources | length > 0
+    and (starter_isvc.resources[0].status.phase | default('')) == 'Ready'
+
+- name: Read the registered Endpoint port
+  ansible.builtin.command: >-
+    kubectl get endpoints {{ starter_model_name }} -n default
+      -o jsonpath={.subsets[0].ports[0].port}
+  register: starter_endpoint_port
+  changed_when: false
+
+- name: "Smoke-test chat-completions against the local llama-server"
+  ansible.builtin.uri:
+    url: "http://localhost:{{ starter_endpoint_port.stdout }}/v1/chat/completions"
+    method: POST
+    headers:
+      Content-Type: application/json
+    body_format: json
+    body:
+      model: "{{ starter_model_name }}"
+      messages:
+        - role: user
+          content: "Reply with: OK"
+      max_tokens: 5
+      temperature: 0
+    status_code: 200
+    return_content: true
+  register: smoke_test
+
+- name: Show smoke-test results
+  ansible.builtin.debug:
+    msg:
+      - "Endpoint: localhost:{{ starter_endpoint_port.stdout }}"
+      - "Model:    {{ smoke_test.json.model | default('?') }}"
+      - "Tokens:   completion={{ smoke_test.json.usage.completion_tokens | default('?') }} prompt={{ smoke_test.json.usage.prompt_tokens | default('?') }}"

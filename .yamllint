@@ -1,0 +1,27 @@
+---
+# yamllint config -- matches Ansible community defaults with one
+# practical concession: 120-char lines (Ansible templates get verbose).
+
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    level: warning
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
+  # Ansible's `---` and YAML tag rules are forgiving; mirror that here.
+  document-start:
+    present: true
+  # Ansible's pipeline often gives long values on a single line; ok.
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+  comments:
+    min-spaces-from-content: 1
+
+ignore: |
+  collections/
+  .github/

@@ -1,0 +1,58 @@
+---
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel in-flight runs from a branch when a new commit lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install yamllint
+        run: pip install --quiet yamllint
+      - name: Run yamllint
+        run: yamllint .
+
+  ansible-lint:
+    name: ansible-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ansible + ansible-lint
+        run: |
+          pip install --quiet ansible-core ansible-lint
+          ansible-galaxy collection install -r requirements.yml
+      - name: Run ansible-lint
+        # production profile; rules tuned in .ansible-lint
+        run: ansible-lint --strict
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@master
+        env:
+          SHELLCHECK_OPTS: "--shell=bash --severity=warning --external-sources"
+        with:
+          scandir: "."
+          ignore_paths: "collections .github"
