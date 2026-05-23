@@ -96,6 +96,6 @@ ansible-playbook \
   playbook.yml \
   --tags "${TAGS}" \
   --diff \
-  "${EXTRA_ARGS[@]:-}"
+  ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 log "Bootstrap complete. Next: set the secrets listed in README.md."
