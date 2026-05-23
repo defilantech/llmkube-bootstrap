@@ -96,6 +96,7 @@ ansible-playbook \
   playbook.yml \
   --tags "${TAGS}" \
   --diff \
+  --ask-become-pass \
   ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}
 
 log "Bootstrap complete. Next: set the secrets listed in README.md."

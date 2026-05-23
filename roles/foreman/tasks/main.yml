@@ -40,7 +40,7 @@
 
 - name: Ensure ~/.config/foreman exists for the GitHub token
   ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/.config/foreman"
+    path: "{{ ansible_facts['user_dir'] }}/.config/foreman"
     state: directory
     mode: "0700"
 

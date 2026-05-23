@@ -7,10 +7,10 @@
 # --- Layout ---------------------------------------------------------------
 
 # Where we clone source repos (LLMKube core + anything else).
-src_dir: "{{ ansible_user_dir }}/src"
+src_dir: "{{ ansible_facts['user_dir'] }}/src"
 
 # Local model store -- metal-agent's --model-store flag.
-model_store: "{{ ansible_user_dir }}/llmkube-models"
+model_store: "{{ ansible_facts['user_dir'] }}/llmkube-models"
 
 # --- LLMKube core ---------------------------------------------------------
 
@@ -59,4 +59,4 @@ carnice_context_size: 131072
 # --- Foreman (opt-in via --tags foreman) ----------------------------------
 
 foreman_namespace: "foreman-system"
-foreman_workspace_root: "{{ ansible_user_dir }}/foreman-workspaces"
+foreman_workspace_root: "{{ ansible_facts['user_dir'] }}/foreman-workspaces"
