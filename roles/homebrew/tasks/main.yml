@@ -18,6 +18,28 @@
     state: present
   become: false
 
+- name: Pre-create /usr/local/cli-plugins for the docker-desktop cask
+  # Docker Desktop's cask postinstall hook writes CLI plugin symlinks
+  # into /usr/local/cli-plugins (legacy Intel-Mac path retained on
+  # Apple Silicon for cross-arch compat). On a fresh macOS install
+  # that directory does not exist and /usr/local/ is root-owned, so
+  # the cask's `sudo mkdir -p` step fails with 'a terminal is required
+  # to read the password' because brew's internal sudo bypasses
+  # Ansible's become and has no TTY.
+  #
+  # Pre-creating the directory under the invoking user removes the
+  # sudo step from brew's cask path entirely. Only runs when the
+  # cask list actually contains docker-desktop or its alias.
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/cli-plugins
+    state: directory
+    owner: "{{ ansible_facts['user_id'] }}"
+    group: staff
+    mode: '0755'
+  when: >-
+    homebrew_casks | select('match', '^docker(-desktop)?$') | list | length > 0
+
 - name: Install Homebrew casks (GUI apps)
   community.general.homebrew_cask:
     name: "{{ homebrew_casks }}"
