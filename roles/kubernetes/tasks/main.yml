@@ -1,16 +1,31 @@
 ---
 # kubernetes role -- bring up the local cluster the operator runs on.
 #
-# Docker Desktop is installed by the homebrew role; we just need to
-# make sure it is running, then create the kind cluster + verify the
-# operator can talk to it.
+# Docker is provided by colima (user-space Lima VM), installed by the
+# homebrew role. We make sure colima is running with enough resources
+# for a kind cluster, then create the cluster + verify connectivity.
+# Colima's daemon stays up across reboots once started; `colima start`
+# is idempotent (no-ops when the VM is already up).
 
-- name: Ensure Docker Desktop is running
-  ansible.builtin.command: open -ga Docker
+- name: Check colima status
+  ansible.builtin.command: colima status
+  register: colima_status
   changed_when: false
-  # `open -ga` is idempotent: silently no-ops when Docker is already up.
+  failed_when: false
 
-- name: Wait for Docker daemon to accept commands
+- name: Start colima with the configured VM size
+  ansible.builtin.command: >-
+    colima start
+    --cpu {{ colima_cpu }}
+    --memory {{ colima_memory_gib }}
+    --disk {{ colima_disk_gib }}
+  # colima writes the 'is it running?' line to stderr, hence the
+  # stderr match below. rc != 0 covers the first-ever invocation
+  # where the VM has not been created yet.
+  when: colima_status.rc != 0 or 'Running' not in (colima_status.stderr | default(''))
+  changed_when: true
+
+- name: Wait for Docker daemon (via colima) to accept commands
   ansible.builtin.command: docker info
   register: docker_info
   retries: 30

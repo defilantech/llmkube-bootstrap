@@ -10,6 +10,18 @@ homebrew_cli_packages:
   - k9s
   - kustomize
 
+  # Docker via colima. colima boots a user-space Lima VM and exposes
+  # a Docker socket; the docker / docker-compose / docker-buildx CLIs
+  # talk to that socket. No /usr/local writes, no sudo dance, smaller
+  # resident footprint than Docker Desktop. To use Docker Desktop
+  # instead, add `docker` to `homebrew_casks` in your group_vars and
+  # be ready to run sudo for /usr/local/* directory creation -- see
+  # README "Docker Desktop on Apple Silicon" callout.
+  - colima
+  - docker
+  - docker-compose
+  - docker-buildx
+
   # llama.cpp for Metal-accelerated inference (metal-agent shells to it)
   - llama.cpp
 
@@ -26,5 +38,10 @@ homebrew_cli_packages:
   - go
   - make
 
-homebrew_casks:
-  - docker          # Docker Desktop -- container runtime kind depends on
+# Default casks: empty. The previous default included Docker Desktop,
+# but its postinstall hook sudo-writes to multiple /usr/local/*
+# paths that do not exist on a fresh Apple Silicon Mac, and brew
+# runs under `become: false` so the sudo prompts have no TTY. We
+# switched to colima (above) as the default Docker runtime. Add
+# casks here in your group_vars when you want GUI apps.
+homebrew_casks: []

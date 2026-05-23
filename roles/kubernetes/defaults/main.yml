@@ -1,0 +1,20 @@
+---
+# kubernetes role defaults.
+#
+# The Docker runtime is colima (user-space Lima VM) rather than
+# Docker Desktop. Reasons:
+#  - No /usr/local/* writes -> no sudo prompts during cask install
+#  - Matches the convention already in use on other LLMKube hosts
+#  - Smaller resident memory footprint, useful on Macs that also
+#    serve a 30B-class model locally
+#
+# Override any of the below in group_vars/all.yml or via
+# --extra-vars when the defaults do not fit your hardware.
+
+# colima VM sizing. Defaults are tuned for a single-node kind cluster
+# running LLMKube core plus a couple of small workloads -- enough
+# headroom that `kind create cluster` does not OOM, not so much that
+# we steal RAM from mlx-server.
+colima_cpu: 4
+colima_memory_gib: 6
+colima_disk_gib: 60
