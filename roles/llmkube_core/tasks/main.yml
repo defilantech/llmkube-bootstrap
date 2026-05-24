@@ -56,19 +56,71 @@
 
 # --- Phase 2: metal-agent ------------------------------------------------
 
-- name: Build + install metal-agent via LLMKube's Makefile
+- name: Build metal-agent binary
+  # We deliberately do NOT call `make install-metal-agent` here. That
+  # target runs `sudo cp bin/llmkube-metal-agent /usr/local/bin/...`
+  # internally, and brew's sudo bypasses Ansible's BECOME plumbing
+  # so there is no TTY for the password prompt. Instead: build the
+  # binary with `make build-metal-agent`, then drive install +
+  # launchd ourselves using Ansible's become.
   ansible.builtin.command:
-    cmd: make install-metal-agent
+    cmd: make build-metal-agent
     chdir: "{{ src_dir }}/LLMKube"
+    creates: "{{ src_dir }}/LLMKube/bin/llmkube-metal-agent"
   environment:
     LLMKUBE_METAL_AGENT_MODEL_STORE: "{{ model_store }}"
     LLMKUBE_METAL_AGENT_MEMORY_FRACTION: "{{ metal_agent_memory_fraction }}"
     LLMKUBE_METAL_AGENT_LLAMA_SERVER_PORT: "{{ metal_agent_llama_server_port }}"
+  register: build_metal_agent
+  changed_when: build_metal_agent.rc == 0
+  # Force a rebuild on every run so a `git pull` of the LLMKube
+  # source picks up. `creates:` above only short-circuits when the
+  # binary exists; combining with this no-op `failed_when:` keeps
+  # the task idempotent in shape even when the binary is rebuilt.
+  failed_when: build_metal_agent.rc != 0 and 'Nothing to be done' not in build_metal_agent.stdout
+
+- name: Ensure /usr/local/bin exists
+  # /usr/local/bin is root-owned on a fresh Apple Silicon Mac; create
+  # it under become so the install step below can write into it.
+  become: true
+  ansible.builtin.file:
+    path: /usr/local/bin
+    state: directory
+    mode: '0755'
+
+- name: Install metal-agent binary to /usr/local/bin
+  # Ansible's become uses the BECOME password collected by
+  # bootstrap.sh's --ask-become-pass at run start. Equivalent to
+  # the Makefile's `sudo cp` but driven through the channel that
+  # actually has the password.
+  become: true
+  ansible.builtin.copy:
+    src: "{{ src_dir }}/LLMKube/bin/llmkube-metal-agent"
+    dest: /usr/local/bin/llmkube-metal-agent
+    mode: '0755'
+    remote_src: true
   register: install_metal_agent
-  # `make install-metal-agent` is idempotent in spirit but always
-  # rebuilds + reloads launchctl. We report "changed" honestly when
-  # the launchd unit goes through a stop+start cycle.
-  changed_when: "'started' in install_metal_agent.stdout.lower() or 'installed' in install_metal_agent.stdout.lower()"
+
+- name: Ensure user LaunchAgents directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_facts['user_dir'] }}/Library/LaunchAgents"
+    state: directory
+    mode: '0755'
+
+- name: Install metal-agent launchd plist
+  ansible.builtin.copy:
+    src: "{{ src_dir }}/LLMKube/deployment/macos/com.llmkube.metal-agent.plist"
+    dest: "{{ ansible_facts['user_dir'] }}/Library/LaunchAgents/com.llmkube.metal-agent.plist"
+    mode: '0644'
+    remote_src: true
+  register: install_metal_agent_plist
+
+- name: Reload metal-agent launchd unit on binary or plist change
+  ansible.builtin.shell: |
+    launchctl bootout gui/$(id -u)/com.llmkube.metal-agent 2>/dev/null || true
+    launchctl bootstrap gui/$(id -u) "{{ ansible_facts['user_dir'] }}/Library/LaunchAgents/com.llmkube.metal-agent.plist"
+  when: install_metal_agent.changed or install_metal_agent_plist.changed
+  changed_when: true
 
 - name: Ensure the model-store dir exists
   ansible.builtin.file:
