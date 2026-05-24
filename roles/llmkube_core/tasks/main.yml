@@ -116,9 +116,12 @@
   register: install_metal_agent_plist
 
 - name: Reload metal-agent launchd unit on binary or plist change
+  vars:
+    metal_agent_plist: >-
+      {{ ansible_facts['user_dir'] }}/Library/LaunchAgents/com.llmkube.metal-agent.plist
   ansible.builtin.shell: |
     launchctl bootout gui/$(id -u)/com.llmkube.metal-agent 2>/dev/null || true
-    launchctl bootstrap gui/$(id -u) "{{ ansible_facts['user_dir'] }}/Library/LaunchAgents/com.llmkube.metal-agent.plist"
+    launchctl bootstrap gui/$(id -u) "{{ metal_agent_plist }}"
   when: install_metal_agent.changed or install_metal_agent_plist.changed
   changed_when: true
 
