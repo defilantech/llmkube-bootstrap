@@ -17,9 +17,14 @@ After a clean bootstrap you have:
 
 - Homebrew + the LLMKube-supporting package set (`kubectl`, `helm`,
   `kind`, `jq`, `yq`, `gh`, `k9s`, `tmux`, `ripgrep`, `fzf`).
-- Docker Desktop, started, with a `kind` cluster named
-  `llmkube-local` running the LLMKube operator from the published
-  Helm chart.
+- `colima` started with a user-space Lima VM (4 CPU, 6 GiB, 60 GiB
+  disk by default; override via `--extra-vars`). Provides the Docker
+  socket `kind` uses. `docker` / `docker-compose` / `docker-buildx`
+  CLIs installed via Homebrew, no Docker Desktop required. To use
+  Docker Desktop instead, see the "Docker Desktop on Apple Silicon"
+  callout near the end of this README.
+- A `kind` cluster named `llmkube-local` running the LLMKube
+  operator from the published Helm chart.
 - A clone of `defilantech/LLMKube` at `~/src/LLMKube`, and the
   `metal-agent` daemon installed + running under `launchd`.
 - A starter model (`phi-4-mini-instruct`, Q4_K_M) deployed via
@@ -97,7 +102,7 @@ group_vars/all.yml       # tunables (memory_fraction, src_dir, model_repo, etc.)
 roles/
   system/                # macOS sanity asserts, Xcode CLT
   homebrew/              # brew + per-package installs
-  kubernetes/            # Docker Desktop, kind, kubectl, helm, k9s
+  kubernetes/            # colima, kind, kubectl, helm, k9s
   llmkube_core/          # clone LLMKube, helm install, install metal-agent
   model_starter/         # download phi-4-mini, apply Model + InferenceService
   opencode/              # opencode binary + sanitized config template
@@ -119,10 +124,47 @@ Every PR runs three linters:
 - `shellcheck` — `bootstrap.sh` and `teardown.sh`
 
 These run on an Ubuntu runner in seconds. They do not exercise the
-playbook end-to-end — macOS-bound bugs in homebrew / launchd / Docker
-Desktop will only surface when a human runs the bootstrap on a real
-Mac. A future change may add a nightly macOS runner that does the
+playbook end-to-end — macOS-bound bugs in homebrew / launchd / colima
+will only surface when a human runs the bootstrap on a real Mac. A
+future change may add a nightly macOS runner that does the
 full install; that's not in v0.1.
+
+## Docker Desktop on Apple Silicon (opt-in only)
+
+The default Docker runtime is **colima**. If you specifically want
+Docker Desktop instead (for the GUI, for parity with an existing
+team setup, or to test something Docker Desktop-only), opt in via
+your `group_vars`:
+
+```yaml
+# group_vars/all.yml or a per-host override
+homebrew_casks:
+  - docker          # the cask is named `docker`; brew resolves to docker-desktop
+```
+
+Two caveats specific to Apple Silicon:
+
+1. Docker Desktop's cask postinstall hook writes CLI plugin symlinks
+   into `/usr/local/cli-plugins`. The pre-task in
+   `roles/homebrew/tasks/main.yml` handles that automatically when
+   `homebrew_casks` contains `docker` / `docker-desktop`.
+2. Docker Desktop also writes the `docker`, `docker-compose`, and
+   `docker-buildx` binaries into `/usr/local/bin`. On a fresh
+   Apple Silicon Mac that directory may not exist (Homebrew lives
+   at `/opt/homebrew/bin`), and `/usr/local/` is root-owned. If
+   bootstrap fails here, run once:
+
+   ```sh
+   sudo mkdir -p /usr/local/bin
+   sudo chown -R "$(whoami)":staff /usr/local/bin
+   ./bootstrap.sh
+   ```
+
+   Subsequent runs no-op; Docker Desktop will not try to recreate
+   the directory once it has user-write perms.
+
+If neither caveat sounds appealing, the default colima path is
+strictly easier.
 
 ## Contributing
 

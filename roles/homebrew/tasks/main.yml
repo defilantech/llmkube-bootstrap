@@ -49,3 +49,9 @@
     # Desktop manually.
     accept_external_apps: true
   become: false
+  # community.general.homebrew_cask errors with "You must select a
+  # cask to install" when handed an empty list. The default
+  # homebrew_casks is now [] (colima replaces docker-desktop), so
+  # skip the task entirely unless a user has opted into one or more
+  # casks via group_vars / --extra-vars.
+  when: homebrew_casks | length > 0
